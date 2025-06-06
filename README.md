@@ -1,6 +1,7 @@
 # Bioluminescent Organoid Segmentation & Tracking (BIOST)
 
 A Python toolkit and standalone app for analyzing bioluminescent organoid data.
+BIOST combines a cellpose pretrained algorithm fine tuned with bioluminescent organoid data with a tracking tool to monitor the size and the bioluminescence of the organoids.
 
 ## Features
 
@@ -11,13 +12,13 @@ A Python toolkit and standalone app for analyzing bioluminescent organoid data.
 ## Installation
 
 If you use the standalone, please proceed this way to download it:
- > Install git on your computer
- > In the windows powershell: type the following commands
-  > git lfs install
-  > git .
-  > clone https://github.com/NeriJeremy/BioluminescentOrganoidSegmentationTracking-BIOST-.git
-  > cd your/path/to/save/BIOST
-  > git lfs pull
+- Install git on your computer
+- In the windows powershell type the following commands:
+ - 'git lfs install'
+ - 'git .'
+ - 'clone https://github.com/NeriJeremy/BioluminescentOrganoidSegmentationTracking-BIOST-.git'
+ - 'cd your/path/to/save/BIOST'
+ - 'git lfs pull'
 
 ## Citations
 
