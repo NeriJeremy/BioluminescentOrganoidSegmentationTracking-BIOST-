@@ -20,7 +20,7 @@ git .
 git clone https://github.com/NeriJeremy/BioluminescentOrganoidSegmentationTracking-BIOST-.git
 cd your/path/to/save/BIOST
 git lfs pull
-
+```
 ## Citations
 
 If you use this code, please also cite the following tools:
