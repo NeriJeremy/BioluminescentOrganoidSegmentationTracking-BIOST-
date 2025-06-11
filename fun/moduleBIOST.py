@@ -62,8 +62,6 @@ class BIOST:
                 # Use the main script’s directory
                 app_path = Path(sys.argv[0]).resolve().parent
             
-            print(f"App Path: {app_path}")
-            
             model_path = app_path / 'models' / 'cyto2_3_biolum'
             
             #path to the trained model
@@ -193,9 +191,9 @@ class BIOST:
         except Exception as e:
             print(f'Tracking error: {e}')
     
-    def MakeFigures_GUI(self,tracking_results):
+    def processdata(self, tracking_results):
         
-        Results = {}
+        data = {}
         
         #Sort the particles to keep only those who have more than 48 localisations
         for filename, df in tracking_results.items():
@@ -203,9 +201,44 @@ class BIOST:
             freq_df = df.groupby('particle').size().reset_index(name='Freq')        
             # Merge the frequency count back to the original dataframe on 'particle'
             df_merged = df.merge(freq_df, on='particle', how='left')        
-            # Filter rows where 'Freq' is greater than or equal to 48
-            df_filtered = df_merged[df_merged['Freq'] >= 48]        
-            Results[filename] = df_filtered
+            # Filter rows where 'Freq' is greater than or equal to the min track length choosen by user input
+            df_filtered = df_merged[df_merged['Freq'] >= self.ProcessingParameters['min_track_length']]        
+            data[filename] = df_filtered
+        
+        processed_data = {}
+        
+        for filename, df in data.items():
+            
+            for particle in df['particle'].unique():
+                
+                particle_data = df[df['particle'] == particle].copy()
+                
+                if self.ProcessingParameters['baselineCorr']: # Apply baseline correction with scipy.detrend function
+                    particle_data = df[df['particle'] == particle]
+                    particle_data.loc[:, 'BiolumInt'] = signal.detrend(particle_data['BiolumInt'])    
+                    
+                if self.ProcessingParameters['normalize']: # Normalize fluo data
+                    # Apply Min-Max normalization
+                    biolum = particle_data['BiolumInt']
+                    particle_data.loc[:, 'BiolumInt'] = (biolum - biolum.min()) / (biolum.max() - biolum.min())
+                
+                if self.ProcessingParameters['smooth_biolum']: # mean smoothing of the data
+                    particle_data.loc[:, 'BiolumInt'] = (particle_data['BiolumInt'].rolling(
+                        window=self.ProcessingParameters['smooth_biolum_factor'], center=True, min_periods=1).mean())
+                
+                if self.ProcessingParameters['smooth_area']: # mean smoothing of the data
+                    particle_data.loc[:, 'area'] = (particle_data['area'].rolling(
+                        window=self.ProcessingParameters['smooth_area_factor'], center=True, min_periods=1).mean())
+                 
+                if filename not in processed_data: # convert filename into a pd dataframe
+                    processed_data[filename] = pd.DataFrame()
+                processed_data[filename] = pd.concat([processed_data[filename], particle_data])
+            
+        return processed_data
+    
+    def makefigures(self, processed_data):
+        
+        for filename, df in processed_data.items():
             
             if self.FigParameters['MakeFig']:
                 
@@ -213,12 +246,9 @@ class BIOST:
                         
                     fig, ax = plt.subplots(figsize=(8, 6))
                         
-                    for particle in df_filtered['particle'].unique():
+                    for particle in df['particle'].unique():
                         # Filter data for the current particle
-                        particle_data = df_filtered[df_filtered['particle'] == particle]
-                        if self.ProcessingParameters['baselineCorr']:
-                            particle_data = particle_data.copy()
-                            particle_data['BiolumInt'] = signal.detrend(particle_data['BiolumInt'])
+                        particle_data = df[df['particle'] == particle]
                         ax.plot(particle_data['frame'], particle_data['BiolumInt'], label=f'Particle {particle}')
                             
                     ax.set_xlabel('Frame')
@@ -235,14 +265,11 @@ class BIOST:
                         
                 else:
                         
-                    for particle in df_filtered['particle'].unique():
+                    for particle in df['particle'].unique():
                             
                         if self.FigParameters['PlotSize']:
                                 
-                            particle_df = df_filtered[df_filtered['particle'] == particle]
-                            if self.ProcessingParameters['baselineCorr']:
-                                particle_df = particle_df.copy()
-                                particle_df['BiolumInt'] = signal.detrend(particle_df['BiolumInt'])
+                            particle_df = df[df['particle'] == particle]
                             # Create a new figure for each particle
                             fig, ax1 = plt.subplots(figsize=(8, 6))
                                 
@@ -273,10 +300,7 @@ class BIOST:
                                 
                         else:
                             #Create a df for each particle
-                            particle_df = df_filtered[df_filtered['particle'] == particle]
-                            if self.ProcessingParameters['baselineCorr']:
-                                particle_df = particle_df.copy()
-                                particle_df['BiolumInt'] = signal.detrend(particle_df['BiolumInt'])
+                            particle_df = df[df['particle'] == particle]
                             fig, ax = plt.subplots(figsize=(8, 6))
                             ax.plot(particle_df['frame'], particle_df['BiolumInt'], label=f'particle {particle}')
                             ax.set_xlabel('Frame')
@@ -293,8 +317,8 @@ class BIOST:
             
             # Save the data
             if self.Save[1]:    
-                for filename, df in Results.items():
+                for filename, df in processed_data.items():
                     save_path = f"{self.save_dir}/{filename}.csv"
                     df.to_csv(save_path)     
             
-        return Results
+        return processed_data
